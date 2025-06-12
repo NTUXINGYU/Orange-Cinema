@@ -47,11 +47,6 @@ public class SysBill implements Serializable {
     // 用户名作模糊查询条件
     private String queryByUserName;
 
-    // 管理员操作识别，及备注内容。管理员操作点单，或添加或修改，必须要填写备注信息，购票子系统不需要填写，并清空
-    private String remark;
-    // 删除状态，1：删除，0：未删除
-    private Boolean delState;
-
     //多表连接
     private SysSession sysSession;
 
@@ -62,11 +57,11 @@ public class SysBill implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SysBill sysBill = (SysBill) o;
-        return Objects.equals(billId, sysBill.billId) && Objects.equals(payState, sysBill.payState) && Objects.equals(userId, sysBill.userId) && Objects.equals(sessionId, sysBill.sessionId) && Objects.equals(seats, sysBill.seats) && Objects.equals(cancelState, sysBill.cancelState) && Objects.equals(cancelRole, sysBill.cancelRole) && Objects.equals(createTime, sysBill.createTime) && Objects.equals(deadline, sysBill.deadline) && Objects.equals(cancelTime, sysBill.cancelTime) && Objects.equals(queryByUserName, sysBill.queryByUserName) && Objects.equals(remark, sysBill.remark) && Objects.equals(delState, sysBill.delState) && Objects.equals(sysSession, sysBill.sysSession) && Objects.equals(sysUser, sysBill.sysUser);
+        return Objects.equals(billId, sysBill.billId) && Objects.equals(payState, sysBill.payState) && Objects.equals(userId, sysBill.userId) && Objects.equals(sessionId, sysBill.sessionId) && Objects.equals(seats, sysBill.seats) && Objects.equals(cancelState, sysBill.cancelState) && Objects.equals(cancelRole, sysBill.cancelRole) && Objects.equals(createTime, sysBill.createTime) && Objects.equals(deadline, sysBill.deadline) && Objects.equals(cancelTime, sysBill.cancelTime) && Objects.equals(queryByUserName, sysBill.queryByUserName) && Objects.equals(sysSession, sysBill.sysSession) && Objects.equals(sysUser, sysBill.sysUser);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(billId, payState, userId, sessionId, seats, cancelState, cancelRole, createTime, deadline, cancelTime, queryByUserName, remark, delState, sysSession, sysUser);
+        return Objects.hash(billId, payState, userId, sessionId, seats, cancelState, cancelRole, createTime, deadline, cancelTime, queryByUserName, sysSession, sysUser);
     }
 }

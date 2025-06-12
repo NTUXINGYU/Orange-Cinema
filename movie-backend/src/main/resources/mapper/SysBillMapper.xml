@@ -4,133 +4,112 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.orange.moviebackend.mapper.SysBillMapper">
 
-    <resultMap id="BillWithDetailsResultMap" type="com.orange.moviebackend.domain.SysBill">
-        <id property="billId" column="bill_id" />
-        <result property="userId" column="user_id" />
-        <result property="sessionId" column="session_id" />
-        <result property="seats" column="seats" />
-        <result property="price" column="price" />
-        <result property="payState" column="pay_state" />
-        <result property="cancelState" column="cancel_state" />
-        <result property="createTime" column="create_time" />
-        <result property="payTime" column="pay_time" />
-        <result property="cancelTime" column="cancel_time" />
-        <result property="deadline" column="deadline" />
-
+    <resultMap id="BaseBillResultMap" type="com.orange.moviebackend.domain.SysBill">
+        <id property="billId" column="bill_id"/>
+        <result property="payState" column="pay_state"/>
+        <result property="userId" column="user_id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="seats" column="seats"/>
+        <result property="cancelState" column="cancel_state"/>
+        <result property="createTime" column="create_time"/>
+        <result property="payTime" column="pay_time"/>
+        <result property="deadline" column="deadline"/>
+        <result property="cancelTime" column="cancel_time"/>
+        <result property="price" column="price"/>
         <association property="sysUser" javaType="com.orange.moviebackend.domain.SysUser">
-            <id property="userId" column="user_id" />
-            <result property="userName" column="user_name" />
+            <result property="userName" column="user_name"/>
         </association>
-
         <association property="sysSession" javaType="com.orange.moviebackend.domain.SysSession">
-            <id property="sessionId" column="session_id" />
-            <result property="sessionDate" column="session_date" />
-            <result property="playTime" column="play_time" />
+            <result property="sessionDate" column="session_date"/>
+            <result property="playTime" column="play_time"/>
             <association property="sysMovie" javaType="com.orange.moviebackend.domain.SysMovie">
-                <id property="movieId" column="movie_id" />
-                <result property="movieName" column="movie_name" />
+                <result property="movieName" column="movie_name"/>
             </association>
             <association property="sysHall" javaType="com.orange.moviebackend.domain.SysHall">
-                <id property="hallId" column="hall_id" />
-                <result property="hallName" column="hall_name" />
+                <result property="hallName" column="hall_name"/>
             </association>
         </association>
     </resultMap>
 
-    <select id="findAllBills" parameterType="com.orange.moviebackend.domain.SysBill" resultMap="BillWithDetailsResultMap">
-        SELECT
-        b.*,
-        u.user_name,
-        s.session_date, s.play_time,
-        m.movie_id, m.movie_name,
-        h.hall_id, h.hall_name
-        FROM
-        sys_bill b
-        LEFT JOIN sys_user u ON b.user_id = u.user_id
-        LEFT JOIN sys_session s ON b.session_id = s.session_id
-        LEFT JOIN sys_movie m ON s.movie_id = m.movie_id
-        LEFT JOIN sys_hall h ON s.hall_id = h.hall_id
-        <where>
-            <if test="payState != null"> AND b.pay_state = #{payState} </if>
-            <if test="sessionId != null and sessionId !=''"> AND b.session_id = #{sessionId} </if>
-            <if test="queryByUserName != null and queryByUserName != ''">
-                AND b.user_id IN (SELECT user_id FROM sys_user WHERE user_name LIKE CONCAT('%', #{queryByUserName}, '%'))
-            </if>
-            <if test="userId != null"> AND b.user_id = #{userId} </if>
-            <if test="createTime != null">
-                AND b.create_time >= #{createTime}
-                AND b.create_time &lt; DATE_ADD(#{createTime}, INTERVAL 1 DAY)
-            </if>
-        </where>
-        ORDER BY b.bill_id DESC
-    </select>
-
-    <select id="findBillById" parameterType="long" resultMap="BillWithDetailsResultMap">
+    <sql id="selectBillVo">
         SELECT
             b.*,
             u.user_name,
             s.session_date, s.play_time,
-            m.movie_id, m.movie_name,
-            h.hall_id, h.hall_name
-        FROM
-            sys_bill b
-                LEFT JOIN sys_user u ON b.user_id = u.user_id
-                LEFT JOIN sys_session s ON b.session_id = s.session_id
-                LEFT JOIN sys_movie m ON s.movie_id = m.movie_id
-                LEFT JOIN sys_hall h ON s.hall_id = h.hall_id
+            m.movie_name,
+            h.hall_name
+        FROM sys_bill b
+                 LEFT JOIN sys_user u ON b.user_id = u.user_id
+                 LEFT JOIN sys_session s ON b.session_id = s.session_id
+                 LEFT JOIN sys_movie m ON s.movie_id = m.movie_id
+                 LEFT JOIN sys_hall h ON s.hall_id = h.hall_id
+    </sql>
+
+    <select id="findByVo" parameterType="com.orange.moviebackend.domain.vo.SysBillVo" resultMap="BaseBillResultMap">
+        <include refid="selectBillVo"/>
+        <where>
+            <if test="sysBill != null and sysBill.userId != null and sysBill.userId != 0">
+                AND b.user_id = #{sysBill.userId}
+            </if>
+            <if test="sysBill != null and sysBill.payState != null">
+                AND b.pay_state = #{sysBill.payState}
+            </if>
+            <if test="sysBill != null and sysBill.cancelState != null">
+                AND b.cancel_state = #{sysBill.cancelState}
+            </if>
+            <if test="sysBill != null and sysBill.queryByUserName != null and sysBill.queryByUserName != ''">
+                AND u.user_name LIKE CONCAT('%', #{sysBill.queryByUserName}, '%')
+            </if>
+        </where>
+        ORDER BY b.create_time DESC
+    </select>
+
+    <select id="findBillById" parameterType="long" resultMap="BaseBillResultMap">
+        <include refid="selectBillVo"/>
         WHERE b.bill_id = #{id}
     </select>
 
-    <select id="findBillByIdForUpdate" parameterType="long" resultMap="BillWithDetailsResultMap">
-        SELECT * FROM sys_bill WHERE bill_id = #{id} FOR UPDATE
+    <select id="findBillByIdForUpdate" parameterType="long" resultMap="BaseBillResultMap">
+        <include refid="selectBillVo"/>
+        WHERE b.bill_id = #{id} FOR UPDATE
     </select>
 
     <insert id="addBill" parameterType="com.orange.moviebackend.domain.SysBill" useGeneratedKeys="true" keyProperty="billId" keyColumn="bill_id">
-        INSERT INTO sys_bill (
-            user_id, session_id, seats, price,
-            pay_state, cancel_state,
-            create_time, deadline
-        ) VALUES (
-                     #{userId}, #{sessionId}, #{seats}, #{price},
-                     0, 0,
-                     NOW(), DATE_ADD(NOW(), INTERVAL 15 MINUTE)
-                 )
+        INSERT INTO sys_bill(user_id, session_id, seats, pay_state, cancel_state, create_time, deadline, price)
+        VALUES(#{userId}, #{sessionId}, #{seats}, #{payState}, #{cancelState}, NOW(), #{deadline}, #{price})
     </insert>
 
-    <update id="updateBillStatusToPaid" parameterType="long">
+    <update id="updateBill" parameterType="com.orange.moviebackend.domain.SysBill">
         UPDATE sys_bill
-        SET
-            pay_state = 1,
-            pay_time = NOW()
-        WHERE
-            bill_id = #{billId} AND pay_state = 0 AND cancel_state = 0
+        <set>
+            <if test="payState != null">pay_state = #{payState},</if>
+            <if test="cancelState != null">cancel_state = #{cancelState},</if>
+            <if test="payTime != null">pay_time = #{payTime},</if>
+            <if test="cancelTime != null">cancel_time = #{cancelTime},</if>
+        </set>
+        WHERE bill_id = #{billId}
     </update>
-
-    <update id="updateBillStatusToCanceled" parameterType="long">
-        UPDATE sys_bill
-        SET
-            cancel_state = 1,
-            cancel_time = NOW()
-        WHERE
-            bill_id = #{billId} AND pay_state = 0 AND cancel_state = 0
-    </update>
-
-    <!-- 查找超时的订单 -->
-    <select id="findTimeoutBill" resultType="com.orange.moviebackend.domain.SysBill">
-        SELECT * FROM sys_bill WHERE NOW() >= deadline AND pay_state = 0 AND cancel_state = 0
-    </select>
 
     <delete id="deleteBill" parameterType="long">
         DELETE FROM sys_bill WHERE bill_id = #{id}
     </delete>
 
-    <update id="increaseSoldCount">
-        UPDATE sys_session
-        SET
-            sall_nums = sall_nums + #{ticketCount}
-        WHERE
-            session_id = #{sessionId}
-    </update>
+    <select id="findTimeoutBill" resultMap="BaseBillResultMap">
+        <include refid="selectBillVo"/>
+        WHERE b.pay_state = 0 AND b.cancel_state = 0 AND b.deadline &lt; NOW()
+    </select>
 
+    <select id="findUnpaidBillsForSeats" resultMap="BaseBillResultMap">
+        SELECT * FROM sys_bill
+        WHERE
+        session_id = #{sessionId}
+        AND pay_state = 0
+        AND cancel_state = 0
+        AND (
+        <foreach collection="seats" item="seat" separator=" OR ">
+            FIND_IN_SET(#{seat}, seats)
+        </foreach>
+        )
+    </select>
 
 </mapper>

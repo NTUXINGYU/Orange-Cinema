@@ -12,7 +12,7 @@ import javax.annotation.Resource;
 import java.util.List;
 
 @Component
-@EnableScheduling
+@EnableScheduling // 确保 @Scheduled 注解能够生效
 public class CancelTimeoutBillUtil {
 
     private static final Logger log = LoggerFactory.getLogger(CancelTimeoutBillUtil.class);
@@ -20,40 +20,34 @@ public class CancelTimeoutBillUtil {
     @Resource
     private SysBillService sysBillService;
 
-    /**
-     * 定时扫描并取消超时订单。
-     * 每分钟执行一次。
-     */
-    @Scheduled(cron = "0 * * * * ?")
+
+    @Scheduled(cron = "0 */1 * * * ?")
     public void cancelTimeoutBillsJob() {
-        log.info("Scheduled task: Scanning for timeout bills...");
+        log.info("Scheduled Task: Starting scan for timeout bills...");
 
         try {
-            // 1. 调用 Service 层方法查询超时订单
             List<SysBill> timeoutBillList = sysBillService.findTimeoutBills();
 
             if (timeoutBillList == null || timeoutBillList.isEmpty()) {
-                log.info("Scheduled task: No timeout bills found.");
+                log.info("Scheduled Task: No timeout bills found this minute.");
                 return;
             }
 
-            log.warn("Scheduled task: Found {} timeout bill(s) to cancel.", timeoutBillList.size());
+            log.warn("Scheduled Task: Found {} timeout bill(s) to process.", timeoutBillList.size());
 
-            // 2. 遍历列表，调用统一的取消服务
             for (SysBill bill : timeoutBillList) {
                 try {
-                    // 【核心】调用我们已经写好的、包含所有业务逻辑的 cancelBill 方法
                     sysBillService.cancelBill(bill.getBillId());
-                    log.info("Scheduled task: Successfully cancelled timeout billId: {}", bill.getBillId());
+                    log.info("Scheduled Task: Successfully cancelled timeout bill with ID: {}", bill.getBillId());
                 } catch (Exception e) {
-                    log.error("Scheduled task: Failed to cancel timeout billId: {}. Reason: {}", bill.getBillId(), e.getMessage(), e);
+                    log.error("Scheduled Task: Failed to cancel timeout bill with ID: {}. Reason: {}", bill.getBillId(), e.getMessage(), e);
                 }
             }
 
-            log.info("Scheduled task: Processed {} timeout bill(s).", timeoutBillList.size());
+            log.info("Scheduled Task: Finished processing {} timeout bill(s).", timeoutBillList.size());
 
         } catch (Exception e) {
-            log.error("An unexpected error occurred during the cancel timeout bills job.", e);
+            log.error("An unexpected error occurred during the 'cancel timeout bills' job.", e);
         }
     }
 }

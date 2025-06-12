@@ -182,6 +182,22 @@
         update sys_session set del_state = 1 where session_id = #{id}
     </update>
 
+    <select id="findSessionByIdForUpdate" parameterType="long" resultMap="BaseSessionWithJoinsResultMap">
+        SELECT
+            se.*,
+            m.movie_name, m.movie_poster, m.movie_length, m.online_url,
+            h.hall_name, h.hall_category
+        FROM
+            sys_session se
+                LEFT JOIN
+            sys_movie m ON se.movie_id = m.movie_id
+                LEFT JOIN
+            sys_hall h ON se.hall_id = h.hall_id
+        WHERE se.session_id = #{id} AND se.del_state = 0
+            FOR UPDATE
+    </select>
+
+    <!-- [核心新增] 一次性更新座位图和已售数量 -->
     <update id="updateSeatsAndSoldCount">
         UPDATE sys_session
         SET

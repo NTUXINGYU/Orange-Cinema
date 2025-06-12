@@ -53,8 +53,8 @@
                   class="seat"
                   :class="{
                     'available': seat === 0,
-                    'sold': seat === 1,
-                    'selected': seat === 2
+                    'selected': seat === 2,
+                    'sold': seat === 3                    
                   }"
                 ></div>
               </div>
@@ -153,6 +153,7 @@ const fetchSessionDetails = async () => {
     return;
   }
   try {
+    // 假设你的后端已经配置了 axios 拦截器来自动添加 token
     const { data: response } = await axios.get(`${API_BASE_URL}/sysSession/find/${sessionId}`);
     if (response.code === 200 && response.data) {
       session.value = response.data;
@@ -173,34 +174,38 @@ const fetchSessionDetails = async () => {
 
 const parseSeatLayout = (seatJson) => {
   try {
+    if (!seatJson) throw new Error("Seat map is not available.");
     const seatData = JSON.parse(seatJson);
     seatLayout.value = Object.entries(seatData)
       .sort(([keyA], [keyB]) => parseInt(keyA) - parseInt(keyB))
       .map(([, value]) => value);
   } catch (e) {
     console.error("Failed to parse seat layout JSON:", e);
-    fetchError.value = "Seat map data is corrupted.";
+    fetchError.value = "Seat map data is corrupted or unavailable.";
   }
 };
 
 const toggleSeat = (rowIndex, colIndex) => {
+  if (isLoading.value || isSubmitting.value) return;
+
   const currentStatus = seatLayout.value[rowIndex][colIndex];
-  if (currentStatus === 0) {
+  if (currentStatus === 0) { // If seat is available
     if (selectedSeatCoordinates.value.length >= 4) {
       ElMessage.warning("You can select up to 4 seats at a time.");
       return;
     }
-    seatLayout.value[rowIndex][colIndex] = 2;
-  } else if (currentStatus === 2) {
-    seatLayout.value[rowIndex][colIndex] = 0;
+    seatLayout.value[rowIndex][colIndex] = 2; // Mark as selected
+  } else if (currentStatus === 2) { // If seat is selected
+    seatLayout.value[rowIndex][colIndex] = 0; // Mark as available
   }
+  // Do nothing for sold (1) or disabled (3) seats
 };
 
 const selectedSeatCoordinates = computed(() => {
   const coordinates = [];
   seatLayout.value.forEach((row, rowIndex) => {
     row.forEach((seat, colIndex) => {
-      if (seat === 2) {
+      if (seat === 2) { // 2 represents a selected seat
         coordinates.push({ row: rowIndex, col: colIndex });
       }
     });
@@ -221,7 +226,11 @@ const totalPrice = computed(() => {
 });
 
 const submitOrder = async () => {
-  // 1. 登录检查 (保持不变)
+  if (selectedSeatCoordinates.value.length === 0) {
+    ElMessage.warning("Please select at least one seat.");
+    return;
+  }
+  
   if (!authStore.isAuthenticated) {
     ElMessageBox.confirm('You need to be logged in to place an order. Go to login page?', 'Login Required', {
       confirmButtonText: 'Login',
@@ -229,68 +238,55 @@ const submitOrder = async () => {
       type: 'warning',
     }).then(() => {
       router.push({ name: 'Login', query: { redirect: route.fullPath } });
+    }).catch(() => {
+      ElMessage.info("Login cancelled.");
     });
     return;
   }
   
-  // 2. 设置提交状态
   isSubmitting.value = true;
   
-  // 3. 构建 payload
   const payload = {
-    sysBill: {
-      userId: authStore.currentUserId,
-      sessionId: session.value.sessionId,
-      seats: selectedSeatCoordinates.value.map(s => `${getRowLabel(s.row)}-${s.col + 1}`).join(','),
-      price: totalPrice.value
-    }
+      // Your SysBillVO expects a sysBill object
+      sysBill: {
+        userId: authStore.currentUserId,
+        sessionId: session.value.sessionId,
+        seats: selectedSeatCoordinates.value.map(s => `${getRowLabel(s.row)}-${s.col + 1}`).join(','),
+        price: totalPrice.value,
+        // Other fields like payState, cancelState, etc., will be set by the backend.
+      }
   };
 
   try {
-    // 4. 发送 POST 请求
     const { data: response } = await axios.post(`${API_BASE_URL}/sysBill`, payload);
 
-    // 5. 【核心修复】处理后端响应
-    if (response.code === 200 && response.data) {
-      // ---- 下单成功 ----
-      
-      const newBillId = response.data; // 从 R 对象中获取 data 部分，也就是 billId
+    // [核心修复] 正确处理后端的响应
+    if (response.code === 200 && response.data && typeof response.data.billId === 'number') {
+      const newBillId = response.data.billId;
 
-      ElMessage.success("Order placed successfully! Redirecting to details...");
+      ElMessage.success("Order created successfully! Redirecting to details...");
       
-      // 确认 newBillId 是一个有效的数字
-      if (typeof newBillId === 'number' && newBillId > 0) {
-        // 跳转到 BillDetail 页面，并传递新的 billId
-        // 请确保您的路由名称是 'BillDetail'
-        router.push({ name: 'BillDetail', params: { billId: newBillId } });
-      } else {
-        // 如果后端没有返回有效的 ID，这是一个严重问题
-        console.error("Backend did not return a valid billId. Response data:", response.data);
-        ElMessage.error("Order created, but failed to get order details. Please check 'My Orders'.");
-        router.push({ name: 'BillInfo' }); // 安全地跳转到订单列表页
-      }
+      router.push({ 
+        name: 'BillDetail', // Ensure this route name is correct in your router config
+        params: { billId: newBillId } 
+      });
 
     } else {
-      // ---- 下单失败 (业务异常) ----
+      // Handle business logic errors from the backend (e.g., seat taken)
       throw new Error(response.msg || 'Failed to submit order. Please try again.');
     }
   } catch (error) {
-    // ---- 网络错误或后端抛出了未捕获的 500 错误 ----
-    let errorMessage = "An unknown error occurred while submitting order.";
-    if (error.response && error.response.data && error.response.data.msg) {
-        errorMessage = error.response.data.msg;
-    } else if (error.message) {
-        errorMessage = error.message;
-    }
+    // Handle network errors or exceptions from the backend
+    const errorMessage = error.response?.data?.msg || error.message || 'An unknown error occurred.';
     
     ElMessage.error(errorMessage);
     
-    // 刷新座位图
-    ElMessage.info("Seat map has been refreshed. Please check seat status.");
-    fetchSessionDetails();
-
+    // If the error was about seats being taken, it's good practice to refresh the seat map
+    if (errorMessage.toLowerCase().includes("seat")) {
+        ElMessage.info("Seat map has been refreshed. Please check seat status.");
+        fetchSessionDetails();
+    }
   } finally {
-    // 6. 结束提交状态
     isSubmitting.value = false;
   }
 };
@@ -301,7 +297,8 @@ const getTmdbImageUrl = (posterPath) => {
 };
 
 const getRowLabel = (rowIndex) => {
-  if (session.value && session.value.sysHall && session.value.sysHall.rowStart) {
+  // This logic seems to depend on hall settings, assuming it works as intended.
+  if (session.value?.sysHall?.rowStart) {
     return String.fromCharCode(session.value.sysHall.rowStart.charCodeAt(0) + rowIndex);
   }
   return rowIndex + 1;
@@ -311,6 +308,7 @@ const goBack = () => router.go(-1);
 
 onMounted(fetchSessionDetails);
 </script>
+
 <style scoped>
 .seat-example {
   width: 20px; height: 20px; border-radius: 3px;

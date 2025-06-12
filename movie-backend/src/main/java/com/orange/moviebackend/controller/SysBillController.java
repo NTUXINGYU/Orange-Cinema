@@ -1,18 +1,21 @@
 package com.orange.moviebackend.controller;
 
 import com.orange.moviebackend.common.exception.BusinessException;
+import com.orange.moviebackend.common.exception.SeatLockException;
 import com.orange.moviebackend.common.response.R;
 import com.orange.moviebackend.domain.SysBill;
-import com.orange.moviebackend.domain.vo.SysBillVo; // 假设您有一个 SysBillVo
+import com.orange.moviebackend.domain.vo.SysBillVo;
 import com.orange.moviebackend.service.SysBillService;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import java.util.List;
 
+/**
+ * 订单控制器，处理所有与订单相关的HTTP请求
+ */
 @RestController
-@RequestMapping("/sysBill") // 所有订单相关的操作都聚合在 /sysBill 路径下
+@RequestMapping("/sysBill") // 将所有订单相关的操作聚合在 /sysBill 路径下
 public class SysBillController extends BaseController {
 
     @Resource
@@ -21,14 +24,14 @@ public class SysBillController extends BaseController {
     /**
      * 根据条件查询订单列表 (主要用于后台或“我的订单”)
      * GET /sysBill
-     * @param sysBill 查询条件，可以包含 userId, payState 等
-     * @return 订单列表
+     * @param sysBillVo 查询条件，可以包含 userId, payState 等
+     * @return 分页后的订单列表
      */
     @GetMapping
-    public R findAllBills(SysBill sysBill) {
+    public R findByQuery(SysBillVo sysBillVo) {
         startPage();
-        List<SysBill> data = sysBillService.findAllBills(sysBill);
-        return getResult(data);
+        List<SysBill> list = sysBillService.findByVo(sysBillVo);
+        return getResult(list);
     }
 
     /**
@@ -40,60 +43,59 @@ public class SysBillController extends BaseController {
     @GetMapping("/{id}")
     public R findBillById(@PathVariable Long id) {
         SysBill bill = sysBillService.findBillById(id);
-        if (bill != null) {
-            return R.success(bill);
-        }
-        return R.error("Order not found.");
+        return bill != null ? R.success(bill) : R.error("Order not found.");
     }
 
-    /**
-     * 【核心】创建订单并锁定座位
-     * POST /sysBill
-     * @param sysBillVo 包含订单核心信息的对象
-     * @return 成功则返回新生成的订单ID，失败则返回错误信息
-     */
+
     @PostMapping
     public R createBill(@RequestBody SysBillVo sysBillVo) {
-        try {
-            SysBill billToCreate = sysBillVo.getSysBill();
-            SysBill createdBill = sysBillService.createBillAndLockSeats(billToCreate);
+        // [核心微调] 从 VO 对象中获取 SysBill 实体
+        SysBill billToCreate = sysBillVo.getSysBill();
+        if (billToCreate == null) {
+            return R.error("Order information is missing.");
+        }
 
-            return R.success("Order created...", createdBill.getBillId());
+        try {
+            SysBill createdBill = sysBillService.createBillAndLockSeats(billToCreate);
+            return R.success("Order created successfully, please pay within 15 minutes.", createdBill);
+        } catch (SeatLockException e) {
+            return R.error(e.getMessage());
         } catch (BusinessException e) {
             return R.error(e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error creating bill: " + e.getMessage());
+            e.printStackTrace();
+            return R.error("An unexpected error occurred while creating the order.");
         }
     }
-
     /**
-     * 【核心】确认支付
-     * POST /sysBill/pay/{billId}
-     * @param billId 要支付的订单ID
+     * [核心] 确认支付
+     * POST /sysBill/pay/{id}
+     * @param id 要支付的订单ID
      * @return 操作结果
      */
-    @PostMapping("/pay/{billId}")
-    public R confirmPayment(@PathVariable Long billId) {
+    @PostMapping("/pay/{id}")
+    public R confirmPayment(@PathVariable Long id) {
         try {
-            sysBillService.confirmPayment(billId);
+            sysBillService.payBill(id);
             return R.success("Payment successful!");
         } catch (BusinessException e) {
-            // 捕获业务异常（如订单已支付/取消）
             return R.error(e.getMessage());
         }
     }
 
     /**
-     * 【核心】取消订单
-     * POST /sysBill/cancel/{billId}
-     * @param billId 要取消的订单ID
+     * [核心] 用户主动取消订单
+     * POST /sysBill/cancel/{id}
+     * @param id 要取消的订单ID
      * @return 操作结果
      */
-    @PostMapping("/cancel/{billId}")
-    public R cancelBill(@PathVariable Long billId) {
+    @PostMapping("/cancel/{id}")
+    public R cancelBill(@PathVariable Long id) {
         try {
-            sysBillService.cancelBill(billId);
+            sysBillService.cancelBill(id);
             return R.success("Order has been successfully cancelled.");
         } catch (BusinessException e) {
-            // 捕获可能出现的业务异常
             return R.error(e.getMessage());
         }
     }
