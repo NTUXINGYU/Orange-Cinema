@@ -1,0 +1,30 @@
+{
+  "name": "movie-user-front",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.9",
+    "element-plus": "^2.9.0",
+    "hls.js": "^1.6.5",
+    "lodash-es": "^4.17.21",
+    "moment": "^2.30.1",
+    "pinia": "^3.0.2",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "vite": "^5.4.10",
+    "vite-plugin-vue-devtools": "^7.5.4"
+  }
+}

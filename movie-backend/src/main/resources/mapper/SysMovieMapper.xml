@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.orange.moviebackend.mapper.SysMovieMapper">
+    <resultMap id="SysMovieResult" type="com.orange.moviebackend.domain.SysMovie">
+        <id property="movieId" column="movie_id"/>
+        <result property="movieName" column="movie_name"/>
+        <result property="movieLength" column="movie_length"/>
+        <result property="moviePoster" column="movie_poster"/>
+        <result property="releaseDate" column="release_date"/>
+        <result property="moviePopularity" column="movie_popularity"/>
+        <result property="movieVoteAverage" column="movie_vote_average"/>
+        <result property="movieVoteCount" column="movie_vote_count"/>
+        <result property="movieIntroduction" column="movie_introduction"/>
+        <result property="movieTagline" column="movie_tagline"/>
+        <result property="movieGenres" column="movie_genres"/>
+        <result property="movieDirector" column="movie_director"/>
+        <result property="delState" column="del_state"/>
+        <result property="onlineUrl" column="online_url"/>
+        <collection property="movieCategoryList" column="movie_id"
+                    select="com.orange.moviebackend.mapper.SysMovieCategoryMapper.findOneMovieCategorys"/>
+    </resultMap>
+
+    <select id="findAllMovies" resultMap="SysMovieResult" parameterType="SysMovieVo">
+        SELECT sm.*
+        FROM sys_movie sm
+        <if test="(movieName == null or movieName == '') and movieCategoryId != null and movieCategoryId > 0">
+            JOIN sys_movie_to_category smtc ON sm.movie_id = smtc.movie_id
+            JOIN sys_movie_category smc ON smtc.movie_category_id = smc.movie_category_id
+        </if>
+        <where>
+            sm.del_state = 0
+            <choose>
+                <when test="movieName != null and movieName != ''">
+                    <!-- Search Mode: Only filter by name -->
+                    AND sm.movie_name LIKE CONCAT('%', #{movieName}, '%')
+                </when>
+                <otherwise>
+                    <if test="startDate != null">
+                        AND sm.release_date >= #{startDate}
+                    </if>
+                    <if test="endDate != null">
+                        AND sm.release_date &lt;= #{endDate}
+                    </if>
+                    <if test="movieCategoryId != null and movieCategoryId > 0">
+                        AND smc.movie_category_id = #{movieCategoryId}
+                    </if>
+                </otherwise>
+            </choose>
+        </where>
+
+        <choose>
+            <when test="movieSort == 2">
+                ORDER BY sm.release_date DESC
+            </when>
+            <when test="movieSort == 3">
+                ORDER BY sm.movie_vote_average DESC, sm.movie_vote_count DESC
+            </when>
+            <otherwise>
+                ORDER BY sm.movie_popularity DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 根据ID查询电影，返回带关联信息的完整映射 -->
+    <select id="findMovieById" resultMap="SysMovieResult" parameterType="long">
+        SELECT *
+        FROM sys_movie
+        WHERE movie_id = #{id} AND del_state = 0 <!-- 添加 del_state 判断 -->
+    </select>
+
+    <!-- 只查询单个电影基本信息，不带关联信息 -->
+    <select id="findOneMovie" resultType="SysMovie" parameterType="long">
+        SELECT *
+        FROM sys_movie
+        WHERE movie_id = #{id} AND del_state = 0 <!-- 添加 del_state 判断 -->
+    </select>
+
+
+    <!-- 新增电影，按需插入字段 -->
+    <insert id="addMovie" parameterType="com.orange.moviebackend.domain.SysMovie">
+        INSERT INTO sys_movie
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            movie_id,
+            <if test="movieName != null and movieName != ''">movie_name,</if>
+            <if test="movieLength != null">movie_length,</if>
+            <if test="moviePoster != null and moviePoster != ''">movie_poster,</if>
+            <if test="movieIntroduction != null and movieIntroduction != ''">movie_introduction,</if>
+            <if test="movieTagline != null and movieTagline != ''">movie_tagline,</if>
+            <if test="releaseDate != null">release_date,</if>
+            <if test="movieGenres != null and movieGenres != ''">movie_genres,</if>
+            <if test="movieDirector != null and movieDirector != ''">movie_director,</if>
+            <if test="moviePopularity != null">movie_popularity,</if>
+            <if test="movieVoteAverage != null">movie_vote_average,</if>
+            <if test="movieVoteCount != null">movie_vote_count,</if>
+            <if test="onlineUrl != null and onlineUrl != ''">online_url,</if>
+            del_state
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            #{movieId},
+            <if test="movieName != null and movieName != ''">#{movieName},</if>
+            <if test="movieLength != null">#{movieLength},</if>
+            <if test="moviePoster != null and moviePoster != ''">#{moviePoster},</if>
+            <if test="movieIntroduction != null and movieIntroduction != ''">#{movieIntroduction},</if>
+            <if test="movieTagline != null and movieTagline != ''">#{movieTagline},</if>
+            <if test="releaseDate != null">#{releaseDate},</if>
+            <if test="movieGenres != null and movieGenres != ''">#{movieGenres},</if>
+            <if test="movieDirector != null and movieDirector != ''">#{movieDirector},</if>
+            <if test="moviePopularity != null">#{moviePopularity},</if>
+            <if test="movieVoteAverage != null">#{movieVoteAverage},</if>
+            <if test="movieVoteCount != null">#{movieVoteCount},</if>
+            <if test="onlineUrl != null and onlineUrl != ''">#{onlineUrl},</if>
+            0
+        </trim>
+    </insert>
+
+    <!-- 更新电影信息 -->
+    <update id="updateMovie" parameterType="com.orange.moviebackend.domain.SysMovie">
+        UPDATE sys_movie
+        <set>
+            <if test="movieName != null and movieName != ''">movie_name = #{movieName},</if>
+            <if test="movieLength != null and movieLength != 0">movie_length = #{movieLength},</if>
+            <if test="moviePoster != null and moviePoster != ''">movie_poster = #{moviePoster},</if>
+            <if test="movieIntroduction != null and movieIntroduction != ''">movie_introduction = #{movieIntroduction},</if>
+            <if test="movieTagline != null">movie_tagline = #{movieTagline},</if>
+            <if test="releaseDate != null">release_date = #{releaseDate},</if>
+            <if test="movieGenres != null">movie_genres = #{movieGenres},</if>
+            <if test="movieDirector != null">movie_director = #{movieDirector},</if>
+            <if test="moviePopularity != null">movie_popularity = #{moviePopularity},</if>
+            <if test="movieVoteAverage != null">movie_vote_average = #{movieVoteAverage},</if>
+            <if test="movieVoteCount != null">movie_vote_count = #{movieVoteCount},</if>
+            <if test="onlineUrl != null">online_url = #{onlineUrl},</if>
+        </set>
+        WHERE movie_id = #{movieId} AND del_state = 0
+    </update>
+
+    <!-- 逻辑删除电影：将 del_state 置为1 -->
+    <update id="deleteMovie" parameterType="long">
+        UPDATE sys_movie
+        SET del_state = 1
+        WHERE movie_id = #{movieId}
+    </update>
+
+    <!-- 根据影院ID查询所有上映电影 -->
+    <select id="findMovieByCinemaId" parameterType="long" resultMap="SysMovieResult">
+        SELECT DISTINCT sm.*
+        FROM sys_movie sm
+                 JOIN sys_session ss ON sm.movie_id = ss.movie_id
+        WHERE ss.session_date &gt;= CURDATE()
+          AND sm.del_state = 0
+    </select>
+
+    <select id="NowPlayingMoviesList" resultMap="SysMovieResult">
+        SELECT sm.*
+        FROM sys_movie sm
+        WHERE sm.del_state = 0
+          AND sm.movie_vote_count > 100
+          AND sm.release_date &gt;= DATE_SUB('2024-01-1', INTERVAL 2 MONTH)
+          AND sm.release_date &lt;= '2024-01-1'
+        ORDER BY sm.movie_popularity DESC
+    </select>
+
+    <select id="UpcomingMoviesList" resultMap="SysMovieResult">
+        SELECT sm.*
+        FROM sys_movie sm
+        WHERE sm.del_state = 0
+          AND sm.movie_vote_count > 10
+          AND sm.release_date &gt; '2024-01-1'
+          AND sm.release_date &lt;= DATE_ADD('2024-01-1', INTERVAL 2 MONTH)
+        ORDER BY sm.release_date ASC
+    </select>
+
+    <select id="TopRatedMoviesList" resultMap="SysMovieResult">
+        SELECT sm.*
+        FROM sys_movie sm
+        WHERE sm.del_state = 0
+          AND sm.movie_vote_count > 1000
+        ORDER BY sm.movie_vote_average DESC
+    </select>
+
+</mapper>

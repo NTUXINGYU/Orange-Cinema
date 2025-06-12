@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.orange.moviebackend.mapper.SysSessionMapper">
+
+    <resultMap id="BaseSessionWithJoinsResultMap" type="com.orange.moviebackend.domain.SysSession">
+        <id property="sessionId" column="session_id" />
+        <result property="hallId" column="hall_id" />
+        <result property="movieId" column="movie_id" />
+        <result property="discountRate" column="discount_rate" />
+        <result property="sessionDate" column="session_date" />
+        <result property="playTime" column="play_time" />
+        <result property="endTime" column="end_time" />
+        <result property="deadline" column="deadline" />
+        <result property="sessionPrice" column="session_price" />
+        <result property="sessionSeats" column="session_seats" />
+        <result property="sessionTips" column="session_tips" />
+        <result property="seatNums" column="seat_nums" />
+        <result property="sallNums" column="sall_nums" />
+        <result property="delState" column="del_state" />
+
+        <association property="sysHall" javaType="com.orange.moviebackend.domain.SysHall">
+            <id property="hallId" column="hall_id" />
+            <result property="hallName" column="hall_name" />
+            <result property="hallCategory" column="hall_category" />
+        </association>
+
+        <association property="sysMovie" javaType="com.orange.moviebackend.domain.SysMovie">
+            <id property="movieId" column="movie_id" />
+            <result property="movieName" column="movie_name" />
+            <result property="moviePoster" column="movie_poster" />
+            <result property="movieLength" column="movie_length"/>
+            <result property="onlineUrl" column="online_url"/>
+            <result property="movieDirector" column="movie_director"/>
+        </association>
+    </resultMap>
+
+
+    <select id="findByVo" parameterType="com.orange.moviebackend.domain.vo.SysSessionVo" resultMap="BaseSessionWithJoinsResultMap">
+        SELECT
+        se.*,
+        m.movie_name, m.movie_poster, m.movie_length, m.online_url, m.movie_director,
+        h.hall_name, h.hall_category
+        FROM
+        sys_session se
+        LEFT JOIN
+        sys_movie m ON se.movie_id = m.movie_id
+        LEFT JOIN
+        sys_hall h ON se.hall_id = h.hall_id
+        <where>
+            se.del_state = 0
+            AND se.deadline > NOW()
+            <if test="hallId != null and hallId != 0">
+                AND se.hall_id = #{hallId}
+            </if>
+            <if test="movieId != null and movieId != 0">
+                AND se.movie_id = #{movieId}
+            </if>
+            <if test="sessionDate != null">
+                AND se.session_date = #{sessionDate}
+            </if>
+        </where>
+        ORDER BY se.play_time ASC
+    </select>
+
+
+    <select id="findSessionById" parameterType="long" resultMap="BaseSessionWithJoinsResultMap">
+        SELECT
+            se.*,
+            m.movie_name, m.movie_poster, m.movie_length, m.online_url, m.movie_director,
+            h.hall_name, h.hall_category
+        FROM
+            sys_session se
+                LEFT JOIN
+            sys_movie m ON se.movie_id = m.movie_id
+                LEFT JOIN
+            sys_hall h ON se.hall_id = h.hall_id
+        WHERE se.session_id = #{id} AND se.del_state = 0
+    </select>
+
+    <select id="findSessionByMovieId" parameterType="long" resultMap="BaseSessionWithJoinsResultMap">
+        SELECT
+            se.*,
+            m.movie_name, m.movie_poster, m.movie_length, m.online_url, m.movie_director,
+            h.hall_name, h.hall_category
+        FROM
+            sys_session se
+                LEFT JOIN
+            sys_movie m ON se.movie_id = m.movie_id
+                LEFT JOIN
+            sys_hall h ON se.hall_id = h.hall_id
+        WHERE
+            se.movie_id = #{movieId}
+          AND se.del_state = 0
+          AND se.deadline > NOW()
+        ORDER BY
+            se.session_date, se.play_time
+    </select>
+
+    <select id="findSessionByMovieIdOrHallId" parameterType="com.orange.moviebackend.domain.SysSession" resultMap="BaseSessionWithJoinsResultMap">
+        SELECT
+        se.*,
+        m.movie_name, m.movie_poster, m.movie_length, m.online_url, m.movie_director,
+        h.hall_name, h.hall_category
+        FROM
+        sys_session se
+        LEFT JOIN
+        sys_movie m ON se.movie_id = m.movie_id
+        LEFT JOIN
+        sys_hall h ON se.hall_id = h.hall_id
+        <where>
+            se.del_state = 0
+            AND se.deadline > NOW()
+            <if test="hallId != null and hallId != 0">
+                AND se.hall_id = #{hallId}
+            </if>
+            <if test="movieId != null and movieId != 0">
+                AND se.movie_id = #{movieId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="addSession" parameterType="com.orange.moviebackend.domain.SysSession" useGeneratedKeys="true" keyProperty="sessionId" keyColumn="session_id">
+        insert into sys_session
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="hallId != null">hall_id,</if>
+            <if test="discountRate != null">discount_rate,</if>
+            <if test="movieId != null">movie_id,</if>
+            <if test="playTime != null">play_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="deadline != null">deadline,</if>
+            <if test="sessionDate != null">session_date,</if>
+            <if test="sessionPrice != null">session_price,</if>
+            <if test="sessionTips != null and sessionTips != ''">session_tips,</if>
+            <if test="sessionSeats != null and sessionSeats != ''">session_seats,</if>
+            <if test="seatNums != null">seat_nums,</if>
+            <if test="sallNums != null">sall_nums,</if>
+            del_state
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="hallId != null">#{hallId},</if>
+            <if test="discountRate != null">#{discountRate},</if>
+            <if test="movieId != null">#{movieId},</if>
+            <if test="playTime != null">#{playTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="deadline != null">#{deadline},</if>
+            <if test="sessionDate != null">#{sessionDate},</if>
+            <if test="sessionPrice != null">#{sessionPrice},</if>
+            <if test="sessionTips != null and sessionTips != ''">#{sessionTips},</if>
+            <if test="sessionSeats != null and sessionSeats != ''">#{sessionSeats},</if>
+            <if test="seatNums != null">#{seatNums},</if>
+            <if test="sallNums != null">#{sallNums},</if>
+            0
+        </trim>
+    </insert>
+
+    <update id="updateSession" parameterType="com.orange.moviebackend.domain.SysSession">
+        update sys_session
+        <set>
+            <if test="hallId != null">hall_id = #{hallId},</if>
+            <if test="discountRate != null and discountRate != ''">discount_rate = #{discountRate},</if>
+            <if test="movieId != null">movie_id = #{movieId},</if>
+            <if test="playTime != null">play_time = #{playTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="deadline != null">deadline = #{deadline},</if>
+            <if test="sessionDate != null">session_date = #{sessionDate},</if>
+            <if test="sessionPrice != null and sessionPrice >= 0">session_price = #{sessionPrice},</if>
+            <if test="sessionTips != null">session_tips = #{sessionTips},</if>
+            <if test="sessionSeats != null">session_seats = #{sessionSeats},</if>
+            <if test="sallNums != null">sall_nums = #{sallNums},</if>
+            <if test="seatNums != null">seat_nums = #{seatNums},</if>
+        </set>
+        where session_id = #{sessionId}
+    </update>
+
+    <select id="findOneSession" parameterType="long" resultType="com.orange.moviebackend.domain.SysSession">
+        select * from sys_session where session_id = #{id}
+    </select>
+
+    <update id="deleteSession" parameterType="long">
+        update sys_session set del_state = 1 where session_id = #{id}
+    </update>
+
+    <update id="updateSeatsAndSoldCount">
+        UPDATE sys_session
+        SET
+            session_seats = #{sessionSeatsJson},
+            sall_nums = sall_nums + #{ticketCount}
+        WHERE
+            session_id = #{sessionId}
+    </update>
+</mapper>
